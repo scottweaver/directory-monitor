@@ -4,8 +4,8 @@ Here’s a short write up of the directory watcher problem:
 
 ## Problem:
 Given a list of directories, set up a system to watch those directories
-for new or modified files.  Files are named as follows “<customer
-name>-<timestamp>.txt".
+for new or modified files.  Files are named as follows "\<customer
+name\>-\<timestamp\>.txt".
 
 Whenever a file is created or modified in a watched directory, an alert
 should be sent out with the directory, file name, and event that occurred
