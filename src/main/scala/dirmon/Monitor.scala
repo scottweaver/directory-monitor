@@ -13,7 +13,7 @@ import java.io.File
  *
  */
 object MonitorBoot extends App {
-  val monitor = Monitor.start(1000, 10000, "configs/directories.txt", "configs/customers.txt")
+  val monitor = Monitor.start(1000, 60000, "configs/directories.txt", "configs/customers.txt")
 }
 
 sealed trait FSMessage
