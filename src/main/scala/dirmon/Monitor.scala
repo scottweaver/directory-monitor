@@ -3,6 +3,8 @@ package dirmon
 import akka.actor._
 import scala.collection.mutable
 import scala.concurrent.duration._
+import scala.io.Source
+import java.io.File
 
 
 /**
@@ -10,7 +12,7 @@ import scala.concurrent.duration._
  *
  */
 object MonitorBoot extends App {
-  val monitor = 5Monitor.start(1000, 10000, List("test_data_live/dir1"))
+  val monitor = Monitor.start(1000, 10000, "configs/directories.txt", "configs/customers.txt")
 }
 
 sealed trait FSMessage
@@ -32,27 +34,31 @@ case class SetCurrentDirectoryState(dir: FSDirectory) extends FSMessage
 case class IterateDirectories(directories: () => List[String]) extends FSMessage
 
 
-class Monitor(delay: Long, pastDueAt: Long, directories: List[String]) {
+class Monitor(delay: Long, pastDueAt: Long, directoriesConfigFile: String, customersConfigFile : String ) {
   implicit val system = ActorSystem("FSMonitor")
   val changeLogger = ChangeLogger.actorRef
   val activityTracker = CustomerActivityTacker.actorRef(List("customer1", "customer2"), pastDueAt, changeLogger)
   val dirMon = DirectoryMonitor.actorRef(changeLogger, activityTracker)
-  val dirItr = DirectoryIterator.actorRef(directories, dirMon)
+  val dirItr = DirectoryIterator.actorRef(dirMon)
 
   import system.dispatcher
-  val s1 = system.scheduler.schedule(0 millis, delay millis, dirItr, IterateDirectories(() => directories))
+  val s1 = system.scheduler.schedule(0 millis, delay millis, dirItr, IterateDirectories(() => entries(directoriesConfigFile)))
   val s2 = system.scheduler.schedule(pastDueAt millis, pastDueAt millis, activityTracker, CheckForActivity)
 
   def stop() = {
     s1.cancel()
     s2.cancel()
   }
+
+  def entries(configFilePath: String) : List[String] = {
+    Source.fromFile(new File(configFilePath)).getLines.toList.map((s) => s)
+  }
 }
 
 object Monitor {
 
-  def start(delay: Long, pastDueAt: Long, directories: List[String]) = {
-    new Monitor(delay, pastDueAt, directories)
+  def start(delay: Long, pastDueAt: Long, directoriesConfigFile: String, customersConfigFile : String) = {
+    new Monitor(delay, pastDueAt, directoriesConfigFile, customersConfigFile)
   }
 
 }
@@ -99,7 +105,7 @@ object DirectoryMonitor {
 
 class ChangeLogger extends Actor with ActorLogging {
   def receive: Receive = {
-    case FileWasChanged(dir, oldFileVer, newFileVer) => log.info(s"The file ${oldFileVer.name} was changed at ${newFileVer} in directory ${dir.name}.")
+    case FileWasChanged(dir, oldFileVer, newFileVer) => log.info(s"The file ${oldFileVer.name} was changed at ${newFileVer.lastChanged} in directory ${dir.name}.")
     case FileWasCreated(dir, file) => log.info(s"The file ${file.name} was created in directory ${dir.name}.")
     case CustomerOverdue(customer, lastActive) => log.warning(s"$customer is past due, last activity at $lastActive")
     case other => log.warning(s"ChangeLogger was unable to process message $other.")
@@ -148,11 +154,11 @@ class DirectoryIterator(directoryProcessor: ActorRef) extends Actor {
 }
 
 object DirectoryIterator {
-  def props(directories: List[String], directoryMonitor: ActorRef): Props = {
+  def props(directoryMonitor: ActorRef): Props = {
     Props(classOf[DirectoryIterator], directoryMonitor)
   }
 
-  def actorRef(directories: List[String], directoryMonitor: ActorRef)(implicit system: ActorSystem) = {
-    system.actorOf(props(directories, directoryMonitor))
+  def actorRef(directoryMonitor: ActorRef)(implicit system: ActorSystem) = {
+    system.actorOf(props(directoryMonitor))
   }
 }
