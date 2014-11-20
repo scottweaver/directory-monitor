@@ -34,7 +34,14 @@ case class SetCurrentDirectoryState(dir: FSDirectory) extends FSMessage
 
 case class IterateDirectories(directories: () => List[String]) extends FSMessage
 
-
+/**
+ *
+ *
+ * @param delay amount of time in milliseconds to wait before running the check for new/changed files and for past-due customers.
+ * @param pastDueAt Amount of time required to elapse before a customer past-due notification is sent.
+ * @param directoriesConfigFile path where the per-line list of directories to watch can be found.
+ * @param customersConfigFile path where the per-line list of customers can be found.
+ */
 class Monitor(delay: Long, pastDueAt: Long, directoriesConfigFile: String, customersConfigFile : String ) {
   implicit val system = ActorSystem("FSMonitor")
   val changeLogger = ChangeLogger.actorRef
@@ -125,7 +132,6 @@ object ChangeLogger {
 
 class CustomerActivityTacker(customers: List[String], pastDueAt: Long, overDueNotifier: ActorRef) extends Actor with StrictLogging {
   val activityRecord = customers.foldLeft(mutable.Map[String, Long]()) { (m, s) => m + (s -> 0)}
-
 
   def receive: Receive = {
     case CustomerLastActive(customer, lastActive) => activityRecord += customer -> lastActive
