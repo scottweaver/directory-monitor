@@ -1,6 +1,5 @@
 package dirmon
 
-import akka.actor.Props
 import akka.testkit.TestActorRef
 import scala.concurrent.duration._
 
@@ -10,10 +9,10 @@ import scala.concurrent.duration._
  */
 class TestCustomerActivityTracker extends BaseActorTest{
 
-  val rightNow = System.currentTimeMillis()
-  val aMinuteBefore =  rightNow - 1000
-  val lessThanAMinute =  rightNow - 500
-  val activityTracker = TestActorRef(Props(classOf[CustomerActivityTacker], List("customer1", "customer2"), testActor))
+  var rightNow = 0L
+  var aMinuteBefore =  0L
+  var lessThanAMinute =  0L
+  val activityTracker = TestActorRef[CustomerActivityTacker](CustomerActivityTacker.props(List("customer1", "customer2"), 1000, testActor))
 
   "CustomerActivityTracker" should {
     "record the last time a customer did something" in {
@@ -22,8 +21,8 @@ class TestCustomerActivityTracker extends BaseActorTest{
         activityTracker ! CustomerLastActive("customer2", rightNow)
         expectNoMsg
       }
-      activityRecordFor("customer1") should be (500L)
-      activityRecordFor("customer2") should be (rightNow)
+      activityRecordFor(activityTracker, "customer1") should be (500L)
+      activityRecordFor(activityTracker, "customer2") should be (rightNow)
     }
 
     "notify us if a customer is overdue for activity" in {
@@ -48,9 +47,15 @@ class TestCustomerActivityTracker extends BaseActorTest{
 
   }
 
-  def activityRecordFor(customer: String): Long = {
+  def activityRecordFor(actorRef: TestActorRef[CustomerActivityTacker], customer: String): Long = {
     // Good for testing, incredibly bad for anything else.
-    activityTracker.underlyingActor.asInstanceOf[CustomerActivityTacker].activityRecord(customer)
+    actorRef.underlyingActor.activityRecord(customer)
+  }
+
+  override def beforeEach {
+    rightNow = System.currentTimeMillis()
+    aMinuteBefore =  rightNow - 1000
+    lessThanAMinute =  rightNow - 500
   }
 
 }

@@ -3,7 +3,7 @@ package dirmon
 import akka.actor.ActorSystem
 import akka.testkit.{DefaultTimeout, ImplicitSender, TestKit}
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike, BeforeAndAfterEach}
 
 /**
  * Created by scott on 9/17/14.
@@ -15,12 +15,14 @@ abstract class BaseActorTest extends TestKit(ActorSystem("testSystem",
    with WordSpecLike
    with Matchers
    with BeforeAndAfterAll
+   with BeforeAndAfterEach
 {
 
 
   override def afterAll {
     shutdown()
   }
+
 }
 
 object BaseActorTest {
