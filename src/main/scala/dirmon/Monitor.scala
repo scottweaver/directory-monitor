@@ -1,6 +1,7 @@
 package dirmon
 
 import akka.actor._
+import com.typesafe.scalalogging.slf4j.StrictLogging
 import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.io.Source
@@ -63,7 +64,7 @@ object Monitor {
 
 }
 
-class DirectoryMonitor(changeLogger: ActorRef, customerActivity: ActorRef) extends Actor with ActorLogging {
+class DirectoryMonitor(changeLogger: ActorRef, customerActivity: ActorRef) extends Actor with StrictLogging {
 
   val directoryState = mutable.Map[String, FSDirectory]()
 
@@ -89,7 +90,7 @@ class DirectoryMonitor(changeLogger: ActorRef, customerActivity: ActorRef) exten
         case None => directoryState += dirNow.name -> dirNow // Since there is no previous directory, we really tell can't if anything has changed.
       }
     }
-    case other => log.warning(s"DirectoryMonitor was unable to process message $other.")
+    case other => logger.warn(s"DirectoryMonitor was unable to process message $other.")
   }
 }
 
@@ -103,12 +104,12 @@ object DirectoryMonitor {
   }
 }
 
-class ChangeLogger extends Actor with ActorLogging {
+class ChangeLogger extends Actor with StrictLogging {
   def receive: Receive = {
-    case FileWasChanged(dir, oldFileVer, newFileVer) => log.info(s"The file ${oldFileVer.name} was changed at ${newFileVer.lastChanged} in directory ${dir.name}.")
-    case FileWasCreated(dir, file) => log.info(s"The file ${file.name} was created in directory ${dir.name}.")
-    case CustomerOverdue(customer, lastActive) => log.warning(s"$customer is past due, last activity at $lastActive")
-    case other => log.warning(s"ChangeLogger was unable to process message $other.")
+    case FileWasChanged(dir, oldFileVer, newFileVer) => logger.info(s"The file ${oldFileVer.name} was changed at ${newFileVer.lastChanged} in directory ${dir.name}.")
+    case FileWasCreated(dir, file) => logger.info(s"The file ${file.name} was created in directory ${dir.name}.")
+    case CustomerOverdue(customer, lastActive) => logger.warn(s"$customer is past due at ${System.currentTimeMillis()}, last activity at $lastActive")
+    case other => logger.warn(s"ChangeLogger was unable to process message $other.")
   }
 }
 
@@ -122,8 +123,9 @@ object ChangeLogger {
   }
 }
 
-class CustomerActivityTacker(customers: List[String], pastDueAt: Long, overDueNotifier: ActorRef) extends Actor with ActorLogging {
+class CustomerActivityTacker(customers: List[String], pastDueAt: Long, overDueNotifier: ActorRef) extends Actor with StrictLogging {
   val activityRecord = customers.foldLeft(mutable.Map[String, Long]()) { (m, s) => m + (s -> 0)}
+
 
   def receive: Receive = {
     case CustomerLastActive(customer, lastActive) => activityRecord += customer -> lastActive
@@ -132,7 +134,7 @@ class CustomerActivityTacker(customers: List[String], pastDueAt: Long, overDueNo
       activityRecord.foreach { case (customer, lastActive) => if (now - lastActive > pastDueAt) overDueNotifier ! CustomerOverdue(customer, lastActive)}
 
     }
-    case other => log.warning(s"CustomerActivityTacker was unable to process message $other.")
+    case other => logger.warn(s"CustomerActivityTacker was unable to process message $other.")
   }
 }
 

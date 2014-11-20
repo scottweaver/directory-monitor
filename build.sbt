@@ -13,6 +13,7 @@ libraryDependencies ++= Seq(
   "joda-time" % "joda-time" % "2.5",
   "org.joda" % "joda-convert" % "1.7",
   "com.typesafe.akka" %% "akka-actor"      % akkaVersion,
-  "com.typesafe.akka" %% "akka-testkit"    % akkaVersion
+  "com.typesafe.akka" %% "akka-testkit"    % akkaVersion,
+  "com.typesafe.akka" %% "akka-slf4j"    % akkaVersion
 )
 
