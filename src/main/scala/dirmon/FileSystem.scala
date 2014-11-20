@@ -17,7 +17,11 @@ case class FSDirectory(name: String, files: List[FSFile]) extends FSObject
 
 object FSDirectory {
 
-  def forDirectory(directory: File): FSDirectory = {
+  def apply(directoryByName: String) : FSDirectory = {
+    apply(new File(directoryByName))
+  }
+
+  def apply(directory: File): FSDirectory = {
     val files = for {
       file <- directory.listFiles().toList
       matcher = """([\w\s]+)-\d+\.txt""".r.findFirstMatchIn(file.getName)
@@ -33,6 +37,10 @@ object FSDirectory {
   }
 
   def forDirectories(directories: List[File]): List[FSDirectory] = {
-    directories.map { case dir => forDirectory(dir)}
+    directories.map { case dir => FSDirectory(dir)}
+  }
+
+  def forDirectoryNames(directories: List[String]): List[FSDirectory] = {
+    forDirectories( directories.map{case fname => new File(fname)})
   }
 }

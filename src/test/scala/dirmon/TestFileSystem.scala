@@ -12,7 +12,7 @@ class TestFileSystem extends WordSpecLike with Matchers {
 
   "FSDirectory" should {
     "should filter and create based on criteria" in {
-      val dir = FSDirectory.forDirectory(new File("test_data/dir1"))
+      val dir = FSDirectory(new File("test_data/dir1"))
       dir.name should be ("dir1")
       dir.files.size should be (2)
       dir.files should contain (FSFile("company1-1416429810487.txt", "company1", 1416429848000L))
