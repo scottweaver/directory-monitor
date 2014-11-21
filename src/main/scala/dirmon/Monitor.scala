@@ -78,38 +78,39 @@ class DirectoryMonitor(changeLogger: ActorRef, customerActivity: ActorRef) exten
   def receive: Receive = {
     case dirNow: FSDirectory => {
       directoryState.get(dirNow.name) match {
-        case Some(dirPrev) => for {
-          currFile <- dirNow.files diff dirPrev.files
-        } yield {
-          dirPrev.files.find(_.name == currFile.name) match {
-            case Some(file) => {
-              changeLogger ! FileWasChanged(dirNow, file, currFile)
-              customerActivity ! CustomerLastActive(currFile.customer, currFile.lastChanged)
-              directoryState += dirNow.name -> dirNow
-            }
-            case None => {
-              changeLogger ! FileWasCreated(dirNow, currFile)
-              customerActivity ! CustomerLastActive(currFile.customer, currFile.lastChanged)
-              directoryState += dirNow.name -> dirNow
-            }
-          }
-        }
-//        {
-//          dirNow.files diff dirPrev.files foreach ((currFile) => {
-//            dirPrev.files.find(_.name == currFile.name) match {
-//              case Some(prevFile) => {
-//                changeLogger ! FileWasChanged(dirNow, prevFile, currFile)
-//                customerActivity ! CustomerLastActive(currFile.customer, currFile.lastChanged)
-//                directoryState += dirNow.name -> dirNow
-//              }
-//              case None => {
-//                changeLogger ! FileWasCreated(dirNow, currFile)
-//                customerActivity ! CustomerLastActive(currFile.customer, currFile.lastChanged)
-//                directoryState += dirNow.name -> dirNow
-//              }
+        case Some(dirPrev) =>
+//        for {
+//          currFile <- dirNow.files diff dirPrev.files
+//        } yield {
+//          dirPrev.files.find(_.name == currFile.name) match {
+//            case Some(file) => {
+//              changeLogger ! FileWasChanged(dirNow, file, currFile)
+//              customerActivity ! CustomerLastActive(currFile.customer, currFile.lastChanged)
+//              directoryState += dirNow.name -> dirNow
 //            }
-//          })
+//            case None => {
+//              changeLogger ! FileWasCreated(dirNow, currFile)
+//              customerActivity ! CustomerLastActive(currFile.customer, currFile.lastChanged)
+//              directoryState += dirNow.name -> dirNow
+//            }
+//          }
 //        }
+        {
+          dirNow.files diff dirPrev.files foreach ((currFile) => {
+            dirPrev.files.find(_.name == currFile.name) match {
+              case Some(prevFile) => {
+                changeLogger ! FileWasChanged(dirNow, prevFile, currFile)
+                customerActivity ! CustomerLastActive(currFile.customer, currFile.lastChanged)
+                directoryState += dirNow.name -> dirNow
+              }
+              case None => {
+                changeLogger ! FileWasCreated(dirNow, currFile)
+                customerActivity ! CustomerLastActive(currFile.customer, currFile.lastChanged)
+                directoryState += dirNow.name -> dirNow
+              }
+            }
+          })
+        }
         case None => directoryState += dirNow.name -> dirNow // Since there is no previous directory, we really tell can't if anything has changed.
       }
     }
@@ -173,7 +174,7 @@ object CustomerActivityTacker {
 
 class DirectoryIterator(directoryProcessor: ActorRef) extends Actor {
   def receive: Receive = {
-    case IterateDirectories(directories) => FSDirectory.forDirectoryNames(directories.apply()).foreach(directoryProcessor ! _)
+    case IterateDirectories(directories) => FSDirectory.forDirectoryNames(directories()).foreach(directoryProcessor ! _)
   }
 }
 
