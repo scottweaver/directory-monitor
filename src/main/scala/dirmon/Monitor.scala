@@ -78,24 +78,7 @@ class DirectoryMonitor(changeLogger: ActorRef, customerActivity: ActorRef) exten
   def receive: Receive = {
     case dirNow: FSDirectory => {
       directoryState.get(dirNow.name) match {
-        case Some(dirPrev) =>
-//        for {
-//          currFile <- dirNow.files diff dirPrev.files
-//        } yield {
-//          dirPrev.files.find(_.name == currFile.name) match {
-//            case Some(file) => {
-//              changeLogger ! FileWasChanged(dirNow, file, currFile)
-//              customerActivity ! CustomerLastActive(currFile.customer, currFile.lastChanged)
-//              directoryState += dirNow.name -> dirNow
-//            }
-//            case None => {
-//              changeLogger ! FileWasCreated(dirNow, currFile)
-//              customerActivity ! CustomerLastActive(currFile.customer, currFile.lastChanged)
-//              directoryState += dirNow.name -> dirNow
-//            }
-//          }
-//        }
-        {
+        case Some(dirPrev) =>  {
           dirNow.files diff dirPrev.files foreach ((currFile) => {
             dirPrev.files.find(_.name == currFile.name) match {
               case Some(prevFile) => {
@@ -142,7 +125,7 @@ object ChangeLogger {
     Props(classOf[ChangeLogger])
   }
 
-  def actorRef(implicit system: ActorSystem) = {
+  def actorRef(implicit system: ActorRefFactory) = {
     system.actorOf(props)
   }
 }
@@ -166,7 +149,7 @@ object CustomerActivityTacker {
     Props(classOf[CustomerActivityTacker], customers, pastDueAt, overDueNotifier)
   }
 
-  def actorRef(customers: List[String], pastDueAt: Long, overDueNotifier: ActorRef)(implicit system: ActorSystem) = {
+  def actorRef(customers: List[String], pastDueAt: Long, overDueNotifier: ActorRef)(implicit system: ActorRefFactory) = {
     system.actorOf(props(customers, pastDueAt, overDueNotifier))
   }
 }
@@ -183,7 +166,7 @@ object DirectoryIterator {
     Props(classOf[DirectoryIterator], directoryMonitor)
   }
 
-  def actorRef(directoryMonitor: ActorRef)(implicit system: ActorSystem) = {
+  def actorRef(directoryMonitor: ActorRef)(implicit system: ActorRefFactory) = {
     system.actorOf(props(directoryMonitor))
   }
 }
