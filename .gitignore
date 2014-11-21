@@ -2,3 +2,4 @@
 .idea
 target
 directory-monitor.log
+src/main/scala/dirmon/ws1.sc
