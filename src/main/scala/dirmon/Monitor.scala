@@ -42,7 +42,7 @@ case class IterateDirectories(directories: () => List[String]) extends FSMessage
  * @param directoriesConfigFile path where the per-line list of directories to watch can be found.
  * @param customersConfigFile path where the per-line list of customers can be found.
  */
-class Monitor(delay: Long, pastDueAt: Long, directoriesConfigFile: String, customersConfigFile : String ) {
+class Monitor(delay: Long, pastDueAt: Long, directoriesConfigFile: String, customersConfigFile: String) {
   implicit val system = ActorSystem("FSMonitor")
   val changeLogger = ChangeLogger.actorRef
   val activityTracker = CustomerActivityTacker.actorRef(List("customer1", "customer2"), pastDueAt, changeLogger)
@@ -50,6 +50,7 @@ class Monitor(delay: Long, pastDueAt: Long, directoriesConfigFile: String, custo
   val dirItr = DirectoryIterator.actorRef(dirMon)
 
   import system.dispatcher
+
   val s1 = system.scheduler.schedule(0 millis, delay millis, dirItr, IterateDirectories(() => entries(directoriesConfigFile)))
   val s2 = system.scheduler.schedule(pastDueAt millis, pastDueAt millis, activityTracker, CheckForActivity)
 
@@ -58,14 +59,14 @@ class Monitor(delay: Long, pastDueAt: Long, directoriesConfigFile: String, custo
     s2.cancel()
   }
 
-  def entries(configFilePath: String) : List[String] = {
+  def entries(configFilePath: String): List[String] = {
     Source.fromFile(new File(configFilePath)).getLines.toList.map((s) => s)
   }
 }
 
 object Monitor {
 
-  def start(delay: Long, pastDueAt: Long, directoriesConfigFile: String, customersConfigFile : String) = {
+  def start(delay: Long, pastDueAt: Long, directoriesConfigFile: String, customersConfigFile: String) = {
     new Monitor(delay, pastDueAt, directoriesConfigFile, customersConfigFile)
   }
 
@@ -76,28 +77,27 @@ class DirectoryMonitor(changeLogger: ActorRef, customerActivity: ActorRef) exten
   val directoryState = mutable.Map[String, FSDirectory]()
 
   def receive: Receive = {
-    case dirNow: FSDirectory => {
-      directoryState.get(dirNow.name) match {
-        case Some(dirPrev) =>  {
-          dirNow.files diff dirPrev.files foreach ((currFile) => {
-            dirPrev.files.find(_.name == currFile.name) match {
-              case Some(prevFile) => {
-                changeLogger ! FileWasChanged(dirNow, prevFile, currFile)
-                customerActivity ! CustomerLastActive(currFile.customer, currFile.lastChanged)
-                directoryState += dirNow.name -> dirNow
-              }
-              case None => {
-                changeLogger ! FileWasCreated(dirNow, currFile)
-                customerActivity ! CustomerLastActive(currFile.customer, currFile.lastChanged)
-                directoryState += dirNow.name -> dirNow
-              }
-            }
-          })
+    case currentDirState: FSDirectory => {
+      (for {
+        prevDirState <- directoryState.get(currentDirState.name).toList
+        currFile <- currentDirState.files diff prevDirState.files
+      } yield {
+        prevDirState.files.find(_.name == currFile.name) match {
+          case Some(prevFile) => activityNotification(FileWasChanged(currentDirState, prevFile, currFile), currentDirState, currFile)
+          case None => activityNotification(FileWasCreated(currentDirState, currFile), currentDirState, currFile)
         }
-        case None => directoryState += dirNow.name -> dirNow // Since there is no previous directory, we really tell can't if anything has changed.
+      }) match {
+        case Nil => directoryState += currentDirState.name -> currentDirState // Since there is no previous directory, we really tell can't if anything has changed.
+        case _ => directoryState
       }
     }
     case other => logger.warn(s"DirectoryMonitor was unable to process message $other.")
+  }
+
+  def activityNotification(fsMsg: FSMessage, dir: FSDirectory, file: FSFile) = {
+    changeLogger ! fsMsg
+    customerActivity ! CustomerLastActive(file.customer, file.lastChanged)
+    directoryState += dir.name -> dir
   }
 }
 
